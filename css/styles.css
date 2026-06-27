@@ -355,3 +355,31 @@ input:focus,textarea:focus{outline:3px solid rgba(30,94,255,.16);border-color:va
   .cta-box{padding:2rem}
   .footer-bottom{flex-direction:column;gap:1rem}
 }
+/* IMÁGENES REALES INFRAPro */
+
+.hero-bg {
+  background:
+    linear-gradient(90deg, rgba(6,20,42,.92) 0%, rgba(6,20,42,.72) 45%, rgba(6,20,42,.25) 100%),
+    url("../images/hero.jpg") center/cover no-repeat !important;
+}
+
+.floors {
+  background-image: url("../images/pisos.jpg") !important;
+}
+
+.steel {
+  background-image: url("../images/estructuras.jpg") !important;
+}
+
+.energy {
+  background-image: url("../images/energia.jpg") !important;
+}
+
+.equipment {
+  background-image: url("../images/maquinaria.jpg") !important;
+}
+
+.solution-visual {
+  background-size: cover !important;
+  background-position: center !important;
+}
