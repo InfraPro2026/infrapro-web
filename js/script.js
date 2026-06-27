@@ -77,7 +77,7 @@ if (form) {
       form.reset();
 
       if (formNote) {
-        formNote.textContent = "Gracias por contactarnos. Hemos recibido tu solicitud y te responderemos a la brevedad.";
+        formNote.textContent = "✓ Gracias. Hemos recibido tu solicitud. Un asesor de InfraPro se comunicará contigo en menos de 24 horas hábiles.";
         formNote.classList.add("success");
       }
     } catch (error) {

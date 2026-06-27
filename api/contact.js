@@ -18,27 +18,29 @@ export default async function handler(req, res) {
     }
 
     const apiKey = process.env.RESEND_API_KEY;
+    const sheetsUrl = process.env.LEADS_WEBHOOK_URL;
 
     if (!apiKey) {
-      return res.status(500).json({
-        ok: false,
-        message: "Falta configurar RESEND_API_KEY en Vercel."
-      });
+      return res.status(500).json({ ok: false, message: "Falta configurar RESEND_API_KEY en Vercel." });
     }
 
-    const text = `
-Nueva solicitud desde infrapro.mx
+    const leadPayload = { nombre, empresa, correo, telefono: telefono || "", mensaje };
 
-Nombre: ${nombre}
-Empresa: ${empresa}
-Correo: ${correo}
-Teléfono: ${telefono || "No proporcionado"}
+    // Guardar lead en Google Sheets
+    if (sheetsUrl) {
+      try {
+        await fetch(sheetsUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(leadPayload)
+        });
+      } catch (sheetError) {
+        console.error("Google Sheets error:", sheetError);
+        // No detenemos el envío de correo si Sheets falla.
+      }
+    }
 
-Mensaje:
-${mensaje}
-`;
-
-    const html = `
+    const leadHtml = `
       <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
         <h2 style="color:#0B1F3A;">Nueva solicitud desde infrapro.mx</h2>
         <p><strong>Nombre:</strong> ${escapeHtml(nombre)}</p>
@@ -51,30 +53,64 @@ ${mensaje}
       </div>
     `;
 
-    const resendResponse = await fetch("https://api.resend.com/emails", {
+    const confirmationHtml = `
+      <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+        <h2 style="color:#0B1F3A;">Gracias por contactar a InfraPro México</h2>
+        <p>Hola ${escapeHtml(nombre)},</p>
+        <p>Hemos recibido correctamente tu solicitud.</p>
+        <p>Nuestro equipo revisará la información y se pondrá en contacto contigo en menos de 24 horas hábiles.</p>
+        <p>Mientras tanto, puedes visitar <a href="https://infrapro.mx">https://infrapro.mx</a> o escribirnos por WhatsApp.</p>
+        <p style="margin-top:24px;">Saludos,<br><strong>Equipo InfraPro México</strong></p>
+      </div>
+    `;
+
+    // Correo interno a InfraPro
+    const internalEmail = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from: "InfraPro Web <onboarding@resend.dev>",
+        from: "InfraPro México <contacto@infrapro.mx>",
         to: ["contacto@infrapro.mx"],
         reply_to: correo,
         subject: `Nueva solicitud de ${empresa} - InfraPro México`,
-        text,
-        html
+        html: leadHtml
       })
     });
 
-    const result = await resendResponse.json();
+    const internalResult = await internalEmail.json();
 
-    if (!resendResponse.ok) {
-      console.error("Resend error:", result);
+    if (!internalEmail.ok) {
+      console.error("Resend internal error:", internalResult);
       return res.status(500).json({
         ok: false,
         message: "No se pudo enviar el mensaje. Intenta por WhatsApp o correo directo."
       });
+    }
+
+    // Confirmación automática al cliente
+    const confirmationEmail = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: "InfraPro México <contacto@infrapro.mx>",
+        to: [correo],
+        reply_to: "contacto@infrapro.mx",
+        subject: "Hemos recibido tu solicitud - InfraPro México",
+        html: confirmationHtml
+      })
+    });
+
+    const confirmationResult = await confirmationEmail.json();
+
+    if (!confirmationEmail.ok) {
+      console.error("Resend confirmation error:", confirmationResult);
+      // No detenemos la operación si falla la confirmación al cliente.
     }
 
     return res.status(200).json({
